@@ -51,10 +51,16 @@ func validateUser(username, password string, newuser bool) bool {
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		// Parse the txt file for the username and password
-		line := scanner.Text()
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue // skip empty lines
+		}
 		line = strings.TrimPrefix(line, "(")
 		line = strings.TrimSuffix(line, ")")
 		user := strings.Split(line, ",")
+		if len(user) < 2 {
+			continue // skip bad lines
+		}
 		user[0] = strings.TrimSpace(user[0])
 		user[1] = strings.TrimSpace(user[1])
 
@@ -101,8 +107,15 @@ func newuser(command []string) bool {
 		}
 		defer file.Close() // Close file after func exit
 
+		// If file is empty, don't add a newline
+		fileInfo, _ := file.Stat()
+		prefix := ""
+		if fileInfo.Size() > 0 {
+			prefix = "\n"
+		}
+		
 		// Write the new user to the EOF
-		user := fmt.Sprintf("\n(%s, %s)", username, password)
+		user := fmt.Sprintf("%s(%s, %s)", prefix, username, password)
 		_, err = file.Write([]byte(user))
 		if err != nil {
 			log.Println(err)
@@ -194,7 +207,7 @@ func handleConnection(conn net.Conn) {
 
 func main() {
 	// Ensure users.txt exists before server starts
-	if _, err := os.Stat("users.txt"); os.IsNotExist(err) { 
+	if _, err := os.Stat("users.txt"); os.IsNotExist(err) {
 		file, err := os.Create("users.txt")
 		if err != nil {
 			log.Fatalf("Failed to create users.txt: %v", err)
